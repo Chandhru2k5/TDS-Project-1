@@ -357,48 +357,7 @@ vercel env add SECRET
 - Production URL will be provided after deployment
 - Vercel provides automatic HTTPS and CDN
 
-### Deploy to Hugging Face Spaces
-
-Hugging Face Spaces provides free hosting for ML and web applications using Docker containers.
-
-#### Method 1: Using Git (Recommended)
-
-##### Step 1: Generate Hugging Face Token
-
-1. Go to [Hugging Face Tokens](https://huggingface.co/settings/tokens)
-2. Click **"New token"**
-3. Name it (e.g., "deployment-token")
-4. Select **"Write"** permission
-5. Click **"Generate"** and copy the token
-
-##### Step 2: Create New Space
-
-1. Go to [Create New Space](https://huggingface.co/new-space?sdk=docker)
-2. Choose a **Space name** (e.g., "llm-code-deployment")
-3. Select **"Docker"** as SDK
-4. Choose visibility (Public/Private)
-5. Click **"Create Space"**
-
-##### Step 3: Configure Space Secrets
-
-1. Go to your Space settings: `https://huggingface.co/spaces/{username}/{spacename}/settings`
-2. Scroll down to **"Repository secrets"** section
-3. Add the following secrets one by one:
-   - `GITHUB_TOKEN`: Your GitHub Personal Access Token
-   - `GITHUB_USERNAME`: Your GitHub username
-   - `OPENAI_API_KEY`: Your Gemini API key
-   - `SECRET`: Your secret key for request verification
-   - `AIPIPE_AKI_KEY`: Your AI Pipe API key (fallback)
-
-![Space Secrets Configuration](.github/assets/space_secret.png)
-
-##### Step 4: Deploy Using Git
-
-Add Hugging Face remote and push:
-
-```bash
-git remote add hf https://huggingface.co/spaces/{username}/{spacename}
-git add .
+<!-- Removed Hugging Face Spaces deployment section because this project deploys to Vercel by default. If you later want HF Spaces instructions, tell me and I will add a focused guide. -->
 git commit -m "Deploy to Hugging Face Spaces"
 git push hf main
 ```
