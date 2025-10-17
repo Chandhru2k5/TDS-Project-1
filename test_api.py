@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-B_URL = "http://localhost:5000/"
+B_URL = "https://tds-project-1-git-main-chandhru2k5s-projects.vercel.app/"
 API_URL = B_URL + "api-endpoint"
 SECRET = os.getenv("SECRET", "")
 
