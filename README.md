@@ -125,23 +125,200 @@ npm i vercel -g
 Run the following command and follow the prompts to authenticate. Create a Vercel account if you don't have one:
 
 ```bash
-vercel
+---
+title: LLM Code Deployment System
+emoji: 🚀
+colorFrom: blue
+colorTo: green
+sdk: vercel
+python_version: "3.13"
+app_file: main.py
+pinned: false
+---
+
+# LLM Code Deployment System
+
+This repository implements a small service that accepts a JSON brief and uses an LLM to generate a single-page web app, then publishes the generated site (by default to GitHub Pages). The project is designed to run as a Flask app and is configured to be deployed on Vercel serverless functions.
+
+This README covers:
+- What the project contains
+- Required environment variables
+- How to run locally
+- How to deploy to Vercel (recommended)
+- Security and cleanup steps (very important)
+- API reference and example
+- Troubleshooting
+
+## What is in this repo
+
+- `main.py` — Flask request handler exposing `/api-endpoint` and `/health`.
+- `api/index.py` — Vercel API shim (keeps functions compatible with Vercel routing).
+- `utils/` — helper modules: config, code generation, GitHub manager, notifier, asset handling, validation, evidence logging, etc.
+- `requirements.txt`, `pyproject.toml` — Python dependency metadata.
+- `vercel.json` — Vercel project routing configuration.
+
+## Required environment variables
+
+Create and set the following environment variables in your hosting environment (Vercel) or a local `.env` when testing locally.
+
+- `OPENAI_API_KEY` — API key for the LLM provider your code uses.
+  - Note: this project currently constructs an OpenAI-compatible client with a Google Generative base URL by default. Supply the key appropriate to the provider configured in `utils/config.py`.
+- `GITHUB_TOKEN` — GitHub Personal Access Token with scopes: `repo`, `workflow`, `admin:repo_hook` (used by `utils/github_manager` to create/update repos and enable Pages).
+- `GITHUB_USERNAME` — GitHub username to use when composing Pages URLs.
+- `SECRET` — Shared secret used to verify incoming requests to `/api-endpoint`.
+- `AIPIPE_AKI_KEY` — Optional fallback API key for the alternate LLM provider (if configured).
+- `PORT` — Optional port for local runs (default 5000).
+
+Important: Do NOT commit these secrets to git. Use Vercel Environment Variables or another secrets manager.
+
+## Run locally (development)
+
+1. Create a local virtual environment and install dependencies:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
 ```
 
-This will:
-- Prompt you to log in or sign up
-- Link your project to Vercel
-- Set up the project configuration
+2. Create a `.env` (for local testing only) with the variables above. Example (.env)
 
-#### 3. Test Locally with Vercel
+```
+OPENAI_API_KEY="your_openai_or_google_key"
+GITHUB_TOKEN="ghp_xxx"
+GITHUB_USERNAME="YourGitHubUser"
+SECRET="psg&iitm"
+PORT=5000
+```
 
-Before deploying to production, test your app locally with Vercel's environment:
+3. Start the server locally:
+
+```powershell
+This starts a local development server that mimics Vercel's production environment.
+
+```
+
+4. Health check:
 
 ```bash
-vercel dev
+curl http://localhost:5000/health
 ```
 
-This starts a local development server that mimics Vercel's production environment.
+## Deploy to Vercel (recommended)
+
+1. Install and login to Vercel CLI (optional) or use the Vercel dashboard:
+
+```bash
+npm i -g vercel
+vercel login
+```
+
+2. Add environment variables in the Vercel project settings (Dashboard → Project → Settings → Environment Variables). Add the same variables listed above.
+
+3. Deploy using the CLI from the repository root:
+
+```bash
+vercel --prod
+```
+
+4. If your project uses Vercel Deployment Protection (authentication), either:
+- Disable protection for the environment (Dashboard → Security → Deployment Protection), or
+- Create a Bypass Token and call the API with the bypass query params or header (see Vercel docs).
+
+## API: /api-endpoint
+
+POST /api-endpoint
+
+Content-Type: application/json
+
+Request JSON fields (required/typical):
+
+- `email` (string) - requestor email (for notifications/evidence)
+- `secret` (string) - must match configured `SECRET`
+- `task` (string) - slug/identifier for the generated app and repo
+- `round` (int) - generation round (1 for new, 2+ for revise)
+- `nonce` (string) - opaque string for idempotency/logging
+- `brief` (string) - natural language brief for the app to generate
+- `checks` (array) - optional evaluation checks
+- `evaluation_url` (string) - URL to POST evaluation notifications to
+- `attachments` (array) - optional files (data URIs or URLs)
+
+Example request (curl):
+
+```bash
+curl -X POST "https://your-deployment.vercel.app/api-endpoint" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email":"you@example.com",
+    "secret":"psg&iitm",
+    "task":"sample-task",
+    "round":1,
+    "nonce":"xyz123",
+    "brief":"Create a calculator webpage",
+    "evaluation_url":"https://httpbin.org/post"
+  }'
+```
+
+Response on success:
+
+```json
+{
+  "status": "success",
+  "repo_url": "https://github.com/username/repo",
+  "pages_url": "https://username.github.io/repo/",
+  "commit_sha": "abc123..."
+}
+```
+
+## Security: remove secrets from the repo (critical)
+
+I noticed there is a `.env` file in the repository containing secrets. You must:
+
+1. Immediately rotate any leaked secrets (GitHub PAT, OpenAI/Google keys).
+2. Remove `.env` from git and add it to `.gitignore`:
+
+```powershell
+git rm --cached .env
+Add-Content -Path .gitignore -Value ".env"
+git add .gitignore
+git commit -m "Remove .env and add to .gitignore"
+git push
+```
+
+3. Add secrets to Vercel Dashboard (Environment Variables) rather than committing them.
+
+## Files you can remove from production repo (optional cleanup)
+
+- `Dockerfile` / `.dockerignore` — not needed for Vercel serverless deployment
+- `.env` — must be removed from git (secrets)
+- `test_api.py`, `test_api_old.py`, `test_api.sh`, and the `test/` folder — useful for local testing but optional for production
+- `.python-version` — optional
+
+If you want I can run a small cleanup commit to remove or ignore these files.
+
+## Troubleshooting
+
+- 401 from LLM provider: make sure `OPENAI_API_KEY` matches the provider used in `utils/config.py` (OpenAI vs Google Generative).
+- 415 Unsupported Media Type: send `Content-Type: application/json` exactly and well-formed JSON body.
+- Vercel Deployment Protection page: either create a bypass token and use the query params and header, or disable protection for the environment.
+- If `repo_info['repo']` is None at runtime, check `GITHUB_TOKEN` and `GITHUB_USERNAME` env vars and inspect logs for repository creation errors.
+
+## Logs & Debugging
+
+- Vercel Dashboard → Deployments → select a deployment → Logs to see function output
+- Locally: run `python main.py` and POST to `http://localhost:5000/api-endpoint` with a valid JSON payload
+
+## License
+
+MIT
+
+---
+If you'd like, I can:
+- Create a sanitized `requirements.txt` (trim unused packages) and commit it,
+- Remove `.env` from the repo and push the change,
+- Add a small guard in `main.py` to handle missing `repo` safely,
+- Or run a test request and show the Vercel logs.
+Tell me which one you want next.
 
 #### 4. Deploy to Production
 
